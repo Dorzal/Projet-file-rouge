@@ -1,0 +1,151 @@
+version: '3.3'
+
+networks:
+  default:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.0.1/24
+
+volumes:
+  pggeo:
+    driver: local
+  pgcatalogue:
+    driver: local
+  pgcommande:
+    driver: local
+  pgstock:
+    driver: local
+
+services:
+
+  mc-geo:
+    build: .docker/mc-geo
+    container_name: mc-geo
+    volumes:
+      - ${SYMFONY_APP_PATH_GEO}:/var/www
+    networks:
+      - default
+
+  mc-mail:
+    build: mc-mail
+    container_name: mc-mail
+    volumes:
+      - ${EXPRESS_PATH}:/src/app/
+    ports:
+      - '25:25'
+      - '587:587'
+    environment:
+      - VIRTUAL_HOST=mail.local
+    networks:
+      - default
+
+
+  bdd-geo:    
+    container_name: bdd-geo
+    build: .docker/postgres
+    restart: 'no'
+    ports:
+      - '5432:5432'
+    volumes:
+      - pggeo:${PSQL_PGDATA_GEO}
+      - ${SYMFONY_APP_PATH_GEO}/var/postgresql:/var/log/postgresql
+    environment:
+      POSTGRES_DB: ${PSQL_DATABASE_GEO}
+      POSTGRES_USER: ${PSQL_USER_GEO}
+      POSTGRES_PASSWORD: ${PSQL_PASSWORD_GEO}
+      PGDATA: ${PSQL_PGDATA_GEO}
+    networks:
+      - default
+
+  reverse:
+    image: nginx
+    container_name: reverse
+    restart: 'no'
+    ports:
+      - '80:80'
+    volumes:
+      - .docker/mc-reverse/conf:/etc/nginx/conf.d
+    networks:
+      - default
+
+  mc-front:
+    image: nginx:1.15.6-alpine
+    container_name: mc-front
+    restart: 'no'
+    volumes:
+      - .docker/mc-front/conf:/etc/nginx/conf.d
+      - ./mc-front:/var/www
+    networks:
+      - default
+
+  mc-catalogue:
+    build: mc-catalogue
+    container_name: mc-catalogue
+    networks:
+      - default
+
+  bdd-catalogue:
+    container_name: bdd-catalogue
+    build: .docker/postgres
+    restart: 'no'
+    ports:
+      - '5433:5432'
+    volumes:
+      - pgcatalogue:${PSQL_PGDATA_CATALOGUE}
+    environment:
+      POSTGRES_DB: ${PSQL_DATABASE_CATALOGUE}
+      POSTGRES_USER: ${PSQL_USER_CATALOGUE}
+      POSTGRES_PASSWORD: ${PSQL_PASSWORD_CATALOGUE}
+      PGDATA: ${PSQL_PGDATA_CATALOGUE}
+    networks:
+      - default
+
+  bdd-commande:
+    container_name: bdd-commande
+    build: .docker/postgres
+    restart: 'no'
+    ports:
+      - '5434:5432'
+    volumes:
+      - pgcommande:${PSQL_PGDATA_COMMANDE}
+    environment:
+      POSTGRES_DB: ${PSQL_DATABASE_COMMANDE}
+      POSTGRES_USER: ${PSQL_USER_COMMANDE}
+      POSTGRES_PASSWORD: ${PSQL_PASSWORD_COMMANDE}
+      PGDATA: ${PSQL_PGDATA_COMMANDE}
+    networks:
+      - default
+
+  mc-commande:
+    build: mc-commande
+    container_name: mc-commande
+    networks:
+      - default
+
+  mc-stock:
+    build: .docker/mc-stock
+    container_name: mc-stock
+    volumes:
+      - ${SYMFONY_APP_PATH_STOCK}:/var/www
+    ports:
+      - '87:80'
+    networks:
+      - default
+
+  bdd-stock:
+    container_name: bdd-stock
+    build: .docker/postgres
+    restart: 'no'
+    ports:
+      - '5435:5432'
+    volumes:
+      - pgstock:${PSQL_PGDATA_STOCK}
+    environment:
+      POSTGRES_DB: ${PSQL_DATABASE_STOCK}
+      POSTGRES_USER: ${PSQL_USER_STOCK}
+      POSTGRES_PASSWORD: ${PSQL_PASSWORD_STOCK}
+      PGDATA: ${PSQL_PGDATA_STOCK}
+    networks:
+      - default
